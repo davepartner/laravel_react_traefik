@@ -1,0 +1,74 @@
+version: '3'
+
+networks:
+  app-network:
+    driver: bridge
+
+services:
+  # Laravel Backend
+  laravel:
+    build: ./laravel-app
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.laravel.rule=PathPrefix(`/api`)" 
+      - "traefik.http.routers.laravel.entrypoints=web"
+      - "traefik.http.services.laravel.loadbalancer.server.port=80"
+    networks:
+      - app-network
+    depends_on:
+      - mysql
+
+  # MySQL Database for Laravel
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_DATABASE: laravel
+      MYSQL_USER: laravel_user
+      MYSQL_PASSWORD: secret
+      MYSQL_ROOT_PASSWORD: root_secret
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - app-network
+
+  # React Frontend
+  react:
+    build: ./react-app
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.react.rule=PathPrefix(`/react`)" 
+      - "traefik.http.routers.react.entrypoints=web"
+      - "traefik.http.services.react.loadbalancer.server.port=80"
+    networks:
+      - app-network
+
+  # Traefik Reverse Proxy
+  traefik:
+    image: traefik:v2.10
+    command: --configFile=/etc/traefik/traefik.yml
+    ports:
+      - "8088:80"     # Host:Container – now using port 8088 on host to avoid Apache conflict
+      - "8443:443"    # Optional if you later re-enable HTTPS
+      - "8080:8080"   # Traefik dashboard
+    volumes:
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml
+      - ./traefik/acme.json:/acme.json
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - app-network
+
+  # Uptime Kuma Monitoring
+  uptime-kuma:
+    image: louislam/uptime-kuma:latest
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.uptime-kuma.rule=PathPrefix(`/monitor`)"
+      - "traefik.http.routers.uptime-kuma.entrypoints=web"
+      - "traefik.http.services.uptime-kuma.loadbalancer.server.port=3001"
+    volumes:
+      - ./uptime-kuma/data:/app/data
+    networks:
+      - app-network
+
+volumes:
+  mysql-data:

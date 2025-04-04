@@ -1,0 +1,25 @@
+# Enable Traefik’s dashboard (for debugging)
+api:
+  dashboard: true
+  insecure: true  # Only for local testing; disable in production
+
+# Define entry points (ports Traefik listens on)
+entryPoints:
+  web:
+    address: ":80"    # HTTP
+  websecure:
+    address: ":443"   # HTTPS
+
+# Tell Traefik to watch Docker containers
+providers:
+  docker:
+    exposedByDefault: false  # Only route containers with Traefik labels
+
+# Configure Let’s Encrypt for HTTPS
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: "your-email@example.com"  # Replace with your email
+      storage: acme.json              # Stores certificates
+      httpChallenge:
+        entryPoint: web              # Use HTTP-01 challenge
